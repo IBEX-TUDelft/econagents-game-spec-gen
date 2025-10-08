@@ -1,0 +1,18 @@
+{{ header }}
+You are the MANAGER stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "manager": {
+    "type": string | "cannot infer",
+    "event_handlers": [ { "event": string, "custom_code": string | "cannot infer", "custom_module": string | "cannot infer", "custom_function": string | "cannot infer" } ]
+  }
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- If manager is not clearly specified, set type to "cannot infer" and event_handlers to [].
+- custom_code may be multiline; if not specified use "cannot infer".
+
+Parsed JSON:
+{{ parsed_json }}

@@ -24,15 +24,15 @@ class EventHandler:
 @dataclass
 class RolePromptEntry:
     key: str  # e.g. system, user, system_phase_2, user_phase_6 etc.
-    value: str
+    content: str  # mapped to 'value' in template context
 
 # --- Agent Role Config ---
 @dataclass
 class AgentRoleConfig:
-    role_id: int
-    name: str
-    llm_type: Optional[str] = None  # human filled (template default ChatOpenAI)
-    llm_params: Dict[str, Any] = field(default_factory=dict)
+    role_id: Optional[int]
+    name: Optional[str]
+    llm_type: Optional[str] = None  # human filled when unknown
+    llm_params: Optional[Dict[str, Any]] = None
     prompts: List[RolePromptEntry] = field(default_factory=list)
     task_phases: List[int] = field(default_factory=list)
     task_phases_excluded: List[int] = field(default_factory=list)
@@ -40,19 +40,19 @@ class AgentRoleConfig:
 # --- Agent Mapping Config ---
 @dataclass
 class AgentMappingConfig:
-    id: int
-    role_id: int
+    id: Optional[int]
+    role_id: Optional[int]
 
 # --- State Field Config ---
 @dataclass
 class StateFieldConfig:
-    name: str
-    type: str
+    name: Optional[str]
+    type: Optional[str]
     default: Any = None
     default_factory: Optional[str] = None
     event_key: Optional[str] = None
-    exclude_from_mapping: bool = False
-    optional: bool = False
+    exclude_from_mapping: Optional[bool] = None
+    optional: Optional[bool] = None
     events: Optional[List[str]] = None
     exclude_events: Optional[List[str]] = None
 
@@ -91,8 +91,8 @@ class RunnerConfig:
 # --- Experiment Config ---
 @dataclass
 class ExperimentConfig:
-    name: str
-    description: str = ""
+    name: Optional[str]
+    description: Optional[str] = ""
     prompt_partials: List[PromptPartial] = field(default_factory=list)
     agent_roles: List[AgentRoleConfig] = field(default_factory=list)
     agents: List[AgentMappingConfig] = field(default_factory=list)
@@ -101,33 +101,42 @@ class ExperimentConfig:
     runner: RunnerConfig = field(default_factory=RunnerConfig)
 
     def to_template_context(self) -> Dict[str, Any]:
-        """Return a dict shaped for econagents_template.yaml.jinja2 rendering."""
+        """Return a dict shaped for econagents_template.yaml.jinja2 rendering.
+        Ensures lists are present and maps RolePromptEntry.content to 'value' key
+        expected by the Jinja template.
+        """
+        # Coalesce lists
+        prompt_partials = [asdict(p) for p in (self.prompt_partials or [])]
+        agent_roles_ctx: List[Dict[str, Any]] = []
+        for r in (self.agent_roles or []):
+            prompts_ctx = [{"key": pe.key, "value": pe.content} for pe in (r.prompts or [])]
+            agent_roles_ctx.append({
+                "role_id": r.role_id,
+                "name": r.name,
+                "llm_type": r.llm_type,
+                "llm_params": r.llm_params,
+                "prompts": prompts_ctx,
+                "task_phases": list(r.task_phases or []),
+                "task_phases_excluded": list(r.task_phases_excluded or []),
+            })
+        agents_ctx = [asdict(a) for a in (self.agents or [])]
+        state_ctx = {
+            "meta_information": [asdict(f) for f in (self.state.meta_information or [])],
+            "private_information": [asdict(f) for f in (self.state.private_information or [])],
+            "public_information": [asdict(f) for f in (self.state.public_information or [])],
+        }
+        manager_ctx = {
+            "type": self.manager.type,
+            "event_handlers": [asdict(eh) for eh in (self.manager.event_handlers or [])],
+        }
         return {
             "experiment_name": self.name,
             "experiment_description": self.description,
-            "prompt_partials": [asdict(p) for p in self.prompt_partials],
-            "agent_roles": [
-                {
-                    "role_id": r.role_id,
-                    "name": r.name,
-                    "llm_type": r.llm_type,
-                    "llm_params": r.llm_params,
-                    "prompts": [asdict(pe) for pe in r.prompts],
-                    "task_phases": r.task_phases,
-                    "task_phases_excluded": r.task_phases_excluded,
-                }
-                for r in self.agent_roles
-            ],
-            "agents": [asdict(a) for a in self.agents],
-            "state": {
-                "meta_information": [asdict(f) for f in self.state.meta_information],
-                "private_information": [asdict(f) for f in self.state.private_information],
-                "public_information": [asdict(f) for f in self.state.public_information],
-            },
-            "manager": {
-                "type": self.manager.type,
-                "event_handlers": [asdict(eh) for eh in self.manager.event_handlers],
-            },
+            "prompt_partials": prompt_partials,
+            "agent_roles": agent_roles_ctx,
+            "agents": agents_ctx,
+            "state": state_ctx,
+            "manager": manager_ctx,
             "runner": asdict(self.runner),
         }
 
@@ -162,4 +171,3 @@ __all__ = [
     "ExperimentConfig",
     "make_state_field_from_json",
 ]
-

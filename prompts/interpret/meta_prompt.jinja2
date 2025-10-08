@@ -1,0 +1,20 @@
+{{ header }}
+You are the META stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "name": string | "cannot infer",
+  "description": string | "cannot infer",
+  "prompt_partials": [
+    { "name": string, "content": string | "cannot infer" }
+  ]
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- If any field cannot be determined solely from this JSON, return the literal string "cannot infer" for that field (or [] for list fields).
+- Do not add or omit properties.
+- Output must be valid minified JSON (no trailing text).
+
+Parsed JSON:
+{{ parsed_json }}
