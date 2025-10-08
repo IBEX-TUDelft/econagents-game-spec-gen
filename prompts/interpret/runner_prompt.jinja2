@@ -1,0 +1,30 @@
+{{ header }}
+You are the RUNNER stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "runner": {
+    "type": string | "cannot infer",
+    "protocol": string | "cannot infer",
+    "hostname": string | "cannot infer",
+    "path": string | "cannot infer",
+    "port": number | "cannot infer",
+    "game_id": number | "cannot infer",
+    "logs_dir": string | "cannot infer",
+    "log_level": string | "cannot infer",
+    "prompts_dir": string | "cannot infer",
+    "phase_transition_event": string | "cannot infer",
+    "phase_identifier_key": string | "cannot infer",
+    "observability_provider": string | "cannot infer",
+    "continuous_phases": [ number ],
+    "min_action_delay": number | "cannot infer",
+    "max_action_delay": number | "cannot infer"
+  }
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- If values are entirely absent in parsed JSON, return "cannot infer" or [] as appropriate.
+
+Parsed JSON:
+{{ parsed_json }}

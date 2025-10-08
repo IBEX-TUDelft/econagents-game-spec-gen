@@ -1,0 +1,52 @@
+{{ header }}
+You are the AGENT_ROLES stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "agent_roles": [
+    {
+      "role_id": number | "cannot infer",
+      "name": string | "cannot infer",
+      "llm_type": string | "cannot infer",
+      "llm_params": object,
+      "prompts": [ { "key": string, "content": string | "cannot infer" } ],
+      "task_phases": [ number ],
+      "task_phases_excluded": [ number ]
+    }
+  ]
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- If any field cannot be determined solely from this JSON, return "cannot infer" (or [] for list fields). For llm_params with insufficient detail, return {}. If a concrete model name (e.g. gpt-4o) appears, set {"model_name": "<that>"}.
+- Prompts list:
+  - MUST include exactly one base system prompt with key "system" per role.
+  - MAY include one optional base user prompt with key "user" (a general default user interaction prompt) if evidence supports a generic repeated instruction across phases.
+  - For each actionable phase where the role has tasks add a user phase prompt: key = "user_phase_<phaseNumber>".
+  - If a role-independent or role-specific system phase partial exists (system_phase_<n> or system_<role>_<n>), add key = "system_phase_<phaseNumber>".
+  - Do NOT generate user_phase_<n> if the role has zero tasks in that phase (unless explicit textual instruction indicates a decision regardless of tasks).
+  - No other key patterns are allowed.
+- When a partial exists for a prompt, use an include directive in content instead of inlining large text:
+  {% raw %}{% include "_partials/<partial_name>.jinja2" %}{% endraw %}
+- If both a generic phase partial and a role-specific phase partial exist, prefer the role-specific version.
+- Keep each prompt under ~250 tokens.
+- Sort prompts by key ascending. No duplicate keys.
+
+Content Assembly Guidance:
+- Base system prompt: brief role identity + include game_description / game_information partials if they exist.
+- Base user prompt (if produced): include game_history (if exists) then game_instructions or equivalent directives.
+- user_phase_<n> prompt: combine relevant include directives + phase-specific instructions; if nothing concrete, content = "cannot infer" (still output the key if tasks exist).
+- system_phase_<n> prompt: include system_phase_<n> partial OR fallback to game_description + short objective sentence, else "cannot infer".
+
+Validation you must do BEFORE output:
+1. Each agent_roles[i] has all required fields.
+2. Prompts is a list; each entry has keys: key, content.
+3. Exactly one base system prompt; at most one base user prompt per role.
+4. No duplicate keys. Keys match allowed patterns.
+5. task_phases: sorted ascending actionable phases where role has ≥1 task.
+6. task_phases_excluded: actionable phases where role has 0 tasks (sorted) OR empty.
+
+Parsed JSON Spec:
+{{ parsed_json }}
+
+(END)

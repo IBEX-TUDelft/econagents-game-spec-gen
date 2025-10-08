@@ -1,0 +1,16 @@
+{{ header }}
+
+You are the AGENTS stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "agents": [ { "id": number | "cannot infer", "role_id": number | "cannot infer" } ]
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- Agent IDs should be contiguous and start from 1 if and only if the parsed JSON shows enumerated players; otherwise use "cannot infer".
+- The count of agents should match the number of roles if and only if parsed JSON explicitly states one agent per role; otherwise return [].
+
+Parsed JSON:
+{{ parsed_json }}

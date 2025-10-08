@@ -1,76 +1,170 @@
-# A Structured Guide to Automatically Generating Valid EconAgents YAML Files from Natural Language Game Specifications
+# EconAgents Game Spec Generation Pipeline
+
+Transform natural language economic game descriptions into validated EconAgents YAML configurations in two LLM‑assisted stages: (1) parsing raw human text into a structured intermediate JSON and (2) interpreting that JSON into a strict YAML file matching `templates/econagents_template.yaml.jinja2`.
 
 ---
+## High-Level Architecture
+```
+ Raw Game Specification (Markdown / plain text)
+                │
+                V
+      parse_in_stages.py (LLM stages: meta+roles+phases → state →  prompt_partials)
+                │  (Validated, feedback-capable JSON extraction)
+                V
+     Intermediate Structured JSON (output/parse_out/*.json)
+                │
+                V
+  interpret_in_stages.py (LLM stages: meta → roles → state → manager → runner → agents → prompt refinement)
+                │  (Strict schemas, unknown sentinel handling, file generation)
+                V
+      Final YAML file (output/experiment_yaml/*.yaml)
+```
 
-## Overview
-
-The goal of this project is to Automatically generating valid EconAgents YAML files from natural language game specifications. With the aim to enable researchers and practitioners to convert human-readable descriptions of economic games into structured YAML configurations that are fully compatible with the EconAgents UI and its underlying Python framework.
-
-**EconAgents** is an open-source Python library and UI ecosystem that facilitates connecting Large Language Model (LLM) agents to economic game servers for simulating experiments. Its architecture is modular, supporting the definition of agent roles, game state hierarchies, Jinja-based templated prompts, and flexible runner orchestration. The system leverages YAML configurations as the canonical format for game descriptions, agent behaviors, state management, and experiment orchestration.
-
-Automating the translation from natural language game specs to EconAgents-compliant YAML introduces unique requirements:
-
-- The ability to handle diverse and complex game structures (e.g., Prisoner’s Dilemma, Futarchy, Harberger Tax) and agent logic.
-- Robustness in maintaining YAML syntax and semantics across hierarchical, nested, and conditional constructs.
-- Security, to avoid injection vulnerabilities and guarantee safe, reproducible files.
-- Human-in-the-loop controls for iterative refinement, error correction, and context retention.
-
-Effectively, the translation pipeline must encapsulate natural language understanding, prompt engineering for structured output, schema-driven validation, and rigorous feedback loops—bridging the gap between game design and the strictures of machine-readable configuration.
-
----
-
-## Translation Pipeline
-
-### High-Level Pipeline Architecture
-
-A translation pipeline for converting natural language economic game specifications into valid EconAgents YAML files consists of several modular stages.
-
-1. **Input Preprocessing and Parsing:**  
-   - Accept a plain natural language description of the game and preprocess for clarity, splitting into logical sections (e.g., Roles, Game Setup, Payoff Structure).
-  
-2. **Chunking and Semantic Segmentation:**  
-   - Break down the specification into topic-constrained sections for more stable LLM output.
-   - Create a phase-based role task matrix to map roles to specific tasks within each game phase.
-   - Identify Payoff structures, Game Dynamics, and Agent Behavior sections.
-
-3. **Prompt Construction and LLM Invocation:**  
-   - Construct prompts (possibly chunk-wise) incorporating schema constraints and output format requirements.
-   - Use a JSON template to guide the structure of the output.
-   - Invoke LLM(s) with prompt(s) to generate initial JSON data sctructures.
-   - Parse and validate JSON outputs for structural integrity.
-   - Human review can be optionally interleaved here.
-
-4. **Schema-Driven YAML Generation:**  
-   - Use LLM(s) to generate YAML for each segment, strongly steering the model toward schema-compliant output.
-   - Optionally interleave human review at this point.
-
-5. **Post-Processing and Merging:**  
-   - Merge chunked outputs into a global YAML configuration, resolving anchors, references, and cross-chunk dependencies.
-
-6. **Schema Validation:**  
-   - Automatically validate the full YAML file with a strict schema validator (YAML Schema, JSON Schema-derived tools, etc.).
-   - Validate empty task for roles.
-
-7. **Feedback and Iterative Refinement:**  
-   - If schema violations or semantic errors are detected, generate corrective prompts and repeat relevant steps with fine-tuned instructions.
-   - Incorporate human feedback loops to refine prompts and outputs iteratively.
-
-8. **Security and Finalization:**  
-   - Sanitize inputs and outputs, apply safe YAML loading practices, check for injection or encoding attacks, and log for audit.
-
-9. **Export/Delivery:**  
-   - Output finalized YAML and use it to run a simulation
-   - Feed the output logs back into the prompt-generation loop for further refinement.
+Two separable loops:
+- **Parsing Loop**: Understand the natural language description.
+- **Interpretation Loop**: Convert condensed JSON into the final executable YAML configuration.
 
 ---
+## Repository Layout (Key Paths)
+| Path | Purpose |
+|------|---------|
+| `game_spec/` | Source human-readable specs (input to Stage 1). |
+| `parse_in_stages.py` | First pipeline: text → structured JSON. |
+| `prompts/parsing/` | Jinja2 prompt templates for parsing stages. |
+| `output/parse_out/` | Generated intermediate JSON specs. |
+| `interpret_in_stages.py` | Second pipeline: JSON → final YAML. |
+| `prompts/interpret/` | Prompt templates for interpretation stages (strict schemas). |
+| `yaml_dataclasses.py` | Python dataclasses mirroring YAML schema. |
+| `templates/econagents_template.yaml.jinja2` | Immutable final YAML template. |
+| `prompts/_partials/` | Auto-written partial prompt include files (Stage 2). |
+| `valid_yaml_examples/` | Reference manually created valid YAMLs (targets). |
 
-# Standardizing Role-Phase-Task Structure for Economic Games in the EconAgents Framework
+---
+## Data Flow Overview
+1. **Human spec**: multi‑paragraph description (roles, phases, payoffs, state variables, instructions).
+2. **Stage 1 (Parsing)** produces structured JSON containing:
+   - `meta`, `roles`, `phases`, `payoff_consequences`, `state`, `settings`, `prompt_partials`.
+3. **Stage 2 (Interpretation)** ingests that JSON and emits:
+   - A strict YAML with: name, description, prompt_partials, agent_roles, agents, state (meta/private/public), manager, runner.
+4. **Unknown information** surfaced as `(UPDATE MANUALLY)` for explicit human completion.
 
-## Matrix Design: Conceptual Framework for Role-Phase-Task Standardization
+---
+## Stage 1: Text → Structured JSON (`parse_in_stages.py`)
+Stages (fixed order):
+1. `meta_roles_phases` – Extracts metadata, list of roles (with notes / tasks), phases (actionability & role tasks), payoff consequences.
+2. `state` – Candidate state variables & classifications.
+3. `partial_prompts` – Skeleton of prompt partial names & placeholders.
 
-### Why a Matrix Structure?
+Features:
+- **Threaded LLM call** with progress spinner and color output.
+- **Strict JSON validation** per stage; errors trigger auto or feedback retries.
+- **Human feedback injection** after each successful parse (optional interactive refinement).
+- Writes final JSON snapshot to `output/parse_out/<spec_name>_YYYYmmdd_HHMMSS.json`.
 
-A **matrix** in the context of economic experiments is an abstract map (often represented as a table or a set of nested dictionaries) that clearly specifies, for each game:
-- What *roles* exist (e.g., Trader, Observer, Policy-Maker),
-- Which *phases* comprise a single round or the whole game (e.g., Offer Phase, Vote Phase, Settlement Phase),
-- Which *tasks* are assigned (possibly zero, one, or multiple) per role in each phase.
+---
+## 6. Stage 2: JSON → YAML (`interpret_in_stages.py`)
+Stages (default sequence):
+1. `meta`  
+2. `roles`  
+3. `state`  
+4. `manager`  
+5. `runner`  
+6. `agents`  
+7. `role_prompts_refinement`
+
+Each stage:
+- Renders a **strict schema prompt** (see `prompts/interpret/`).
+- Enforces: “Extract ONLY from supplied JSON; use `cannot infer` when absent.”
+- Validates shape & uniqueness constraints (e.g., no duplicate prompt keys, mandatory system prompt). 
+- Auto‑retries on schema failures (configurable) and then offers manual feedback injection.
+
+Outputs:
+- YAML file in `output/experiment_yaml/`.
+- `(UPDATE MANUALLY)` markers for unknown scalars.
+
+---
+## YAML Template Contract (Immutable)
+`templates/econagents_template.yaml.jinja2` is **not to be altered**. All generation logic must conform to its structure:
+```
+name: "..."
+description: "..."
+prompt_partials: [...]
+agent_roles: [...]
+agents: [...]
+state: { meta_information, private_information, public_information }
+manager: { type, event_handlers }
+runner: { type, protocol, hostname, ... }
+```
+Prompts inside each role are rendered as a list of single‑key mappings; this matches downstream server expectations.
+
+---
+## Dataclasses Mapping (`yaml_dataclasses.py`)
+Core classes: `ExperimentConfig`, `PromptPartial`, `AgentRoleConfig`, `RolePromptEntry`, `StateFieldConfig`, `ManagerConfig`, `RunnerConfig`.
+
+`ExperimentConfig.to_template_context()` transforms internal Python objects into the dictionary consumed by the Jinja2 template, also normalizing `RolePromptEntry.content` → `value` for the template’s `prompt.value` access pattern.
+
+---
+## Prompt Templates & Schemas
+Two families:
+- Parsing prompts: `prompts/parsing/*.jinja2` – loosely structured extraction.
+- Interpretation prompts: `prompts/interpret/*.jinja2` – **strict JSON schemas**; all contain the header enforcing non‑inference policy.
+
+You can modify or add interpretation stages by:
+1. Creating a new Jinja2 prompt file with a strict return schema.
+2. Adding a `Stage` enum entry (if new) and wiring it into the stage list in the relevant driver script.
+3. Extending validation logic accordingly.
+
+---
+## Handling Unknown / Missing Fields
+Policy: *Never hallucinate.* Instead:
+- LLM returns `"cannot infer"` (string) or `[]` (empty list) for unknown fields.
+- During interpretation merge, `"cannot infer"` → `None` (Python) for scalars.
+- Prior to YAML render, any `None` scalar is converted to `(UPDATE MANUALLY)` for clarity.
+- Empty lists are sometimes given a placeholder element (in Stage 2 rendering) so the YAML shows an explicit location to edit rather than an invisible omission.
+
+---
+## Running the Pipeline (Quick Start)
+### Prerequisites
+- Python 3.11+ recommended (uses modern typing and dataclasses).
+- OpenAI (or compatible) API key exported as `OPENAI_API_KEY` (the custom wrapper expects it).
+
+### Install Dependencies
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+export OPENAI_API_KEY=sk-...   # set your key (fish/zsh adapt accordingly) or create a .env file
+```
+
+### (A) Parse a Human Spec to JSON
+Game spec source files live in `game_spec/`. Add or edit one (Markdown / text). Then:
+```bash
+python parse_in_stages.py
+# Follow interactive menu to choose a spec.
+# Accept or provide feedback per stage until JSON is written to output/parse_out/
+```
+Result: `output/parse_out/<your_spec>_TIMESTAMP.json`.
+
+### (B) Interpret JSON to Final YAML
+```bash
+python interpret_in_stages.py
+# Select the generated JSON file.
+# Review each strict schema stage; accept or retry with feedback.
+```
+Result: 
+- YAML: `output/experiment_yaml/<your_spec>.yaml`
+- Prompt partial includes: `prompts/_partials/*.jinja2`
+
+### (C) Manual Completion
+Search for `(UPDATE MANUALLY)` in the YAML and partials to finalize missing pieces.
+
+### (D) (Optional) Use YAML in EconAgents
+(Outside this repo) point the EconAgents runner to the produced YAML.
+
+---
+## Advanced Usage & Feedback Loop
+- **Auto‑Retry**: Each interpretation stage auto‑retries a configurable number of times (default 2) on JSON validation failure.
+- **Human Feedback**: After an error or accepted result you can inject targeted feedback; the retry prompt includes: previous response, error message, and your notes.
+- **Color Codes**: Blue (stage header), Green (success), Red (error), Yellow (warnings / skip), Gray (prompt preview).
+
+(End of README)

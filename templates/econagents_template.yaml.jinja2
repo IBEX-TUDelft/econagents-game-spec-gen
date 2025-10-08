@@ -1,5 +1,5 @@
 name: "{{ experiment_name }}"
-description: "{{ experiment_description }}"  # optional
+description: "{{ experiment_description }}"
 
 prompt_partials:
   {% for partial in prompt_partials %}
@@ -13,19 +13,19 @@ agent_roles:
   {% for role in agent_roles %}
   - role_id: {{ role.role_id }}
     name: "{{ role.name }}"
-    llm_type: "{{ role.llm_type if role.llm_type is not none and role.llm_type|lower != 'none' else 'ChatOpenAI' }}"  # optional, set by human
-    llm_params: {{ role.llm_params | default('{}') }}        # optional, set by human
+    llm_type: "{{ role.llm_type if role.llm_type is not none and role.llm_type|lower != 'none' else 'ChatOpenAI' }}"
+    llm_params: {{ role.llm_params | default('{}') }}
     prompts:  # use partial prompts from prompt_partials if needed
       {% for prompt in role.prompts %}
       - {{ prompt.key }}: |-
 {% for line in prompt.value.splitlines() %}          {{ line }}
 {% endfor %}
       {% endfor %}
-    task_phases: {{ role.task_phases | default('[]') }}      # optional
-    task_phases_excluded: {{ role.task_phases_excluded | default('[]') }} # optional
+    task_phases: {{ role.task_phases | default('[]') }}
+    task_phases_excluded: {{ role.task_phases_excluded | default('[]') }}
   {% endfor %}
 
-agents:  # optional
+agents:  
   {% for agent in agents %}
   - id: {{ agent.id }}
     role_id: {{ agent.role_id }}
@@ -36,48 +36,48 @@ state:
     {% for field in state.meta_information %}
     - name: "{{ field.name }}"
       type: "{{ field.type }}"
-      default: {{ field.default | default('null') }}         # optional
-      default_factory: {{ field.default_factory | default('null') }} # optional
-      event_key: {{ field.event_key | default('null') }}     # optional
-      exclude_from_mapping: {{ field.exclude_from_mapping | default('false') }} # optional
-      optional: {{ field.optional | default('false') }}      # optional
-      events: {{ field.events | default('[]') }}             # optional
-      exclude_events: {{ field.exclude_events | default('[]') }} # optional
+      default: {{ field.default | default('null') }}
+      default_factory: {{ field.default_factory | default('null') }}
+      event_key: {{ field.event_key | default('null') }}
+      exclude_from_mapping: {{ field.exclude_from_mapping | default('false') }}
+      optional: {{ field.optional | default('false') }}
+      events: {{ field.events | default('[]') }}
+      exclude_events: {{ field.exclude_events | default('[]') }}
     {% endfor %}
   private_information:
     {% for field in state.private_information %}
     - name: "{{ field.name }}"
       type: "{{ field.type }}"
-      default: {{ field.default | default('null') }}         # optional
-      default_factory: {{ field.default_factory | default('null') }} # optional
-      event_key: {{ field.event_key | default('null') }}     # optional
-      exclude_from_mapping: {{ field.exclude_from_mapping | default('false') }} # optional
-      optional: {{ field.optional | default('false') }}      # optional
-      events: {{ field.events | default('[]') }}             # optional
-      exclude_events: {{ field.exclude_events | default('[]') }} # optional
+      default: {{ field.default | default('null') }}
+      default_factory: {{ field.default_factory | default('null') }}
+      event_key: {{ field.event_key | default('null') }}
+      exclude_from_mapping: {{ field.exclude_from_mapping | default('false') }}
+      optional: {{ field.optional | default('false') }}
+      events: {{ field.events | default('[]') }}
+      exclude_events: {{ field.exclude_events | default('[]') }}
     {% endfor %}
   public_information:
     {% for field in state.public_information %}
     - name: "{{ field.name }}"
       type: "{{ field.type }}"
-      default: {{ field.default | default('null') }}         # optional
-      default_factory: {{ field.default_factory | default('null') }} # optional
-      event_key: {{ field.event_key | default('null') }}     # optional
-      exclude_from_mapping: {{ field.exclude_from_mapping | default('false') }} # optional
-      optional: {{ field.optional | default('false') }}      # optional
-      events: {{ field.events | default('[]') }}             # optional
-      exclude_events: {{ field.exclude_events | default('[]') }} # optional
+      default: {{ field.default | default('null') }}
+      default_factory: {{ field.default_factory | default('null') }}
+      event_key: {{ field.event_key | default('null') }}
+      exclude_from_mapping: {{ field.exclude_from_mapping | default('false') }}
+      optional: {{ field.optional | default('false') }}
+      events: {{ field.events | default('[]') }}
+      exclude_events: {{ field.exclude_events | default('[]') }}
     {% endfor %}
 
 manager: # set by human
   type: "{{ manager.type | default('TurnBasedPhaseManager') }}"
-  event_handlers:  # optional
+  event_handlers:  
     {% for handler in manager.event_handlers %}
     - event: "{{ handler.event }}"
-      custom_code: |  # optional
+      custom_code: |  
         {{ handler.custom_code | default('') | indent(8) }}
-      custom_module: "{{ handler.custom_module | default('') }}" # optional
-      custom_function: "{{ handler.custom_function | default('') }}" # optional
+      custom_module: "{{ handler.custom_module | default('') }}"
+      custom_function: "{{ handler.custom_function | default('') }}"
     {% endfor %}
 
 runner: # set by human
@@ -87,12 +87,12 @@ runner: # set by human
   path: "{{ runner.path | default('wss') }}"
   port: {{ runner.port }}
   game_id: {{ runner.game_id }}
-  logs_dir: "{{ runner.logs_dir | default('logs') }}"         # optional
-  log_level: "{{ runner.log_level | default('INFO') }}"       # optional
-  prompts_dir: "{{ runner.prompts_dir | default('prompts') }}" # optional
-  phase_transition_event: "{{ runner.phase_transition_event | default('phase-transition') }}" # optional
-  phase_identifier_key: "{{ runner.phase_identifier_key | default('phase') }}" # optional
-  observability_provider: "{{ runner.observability_provider | default('') }}" # optional
-  continuous_phases: {{ runner.continuous_phases | default('[]') }} # optional, for HybridGameRunner
-  min_action_delay: {{ runner.min_action_delay | default('5') }}    # optional, for HybridGameRunner
-  max_action_delay: {{ runner.max_action_delay | default('10') }}   # optional, for HybridGameRunner
+  logs_dir: "{{ runner.logs_dir | default('logs') }}"
+  log_level: "{{ runner.log_level | default('INFO') }}"
+  prompts_dir: "{{ runner.prompts_dir | default('prompts') }}"
+  phase_transition_event: "{{ runner.phase_transition_event | default('phase-transition') }}"
+  phase_identifier_key: "{{ runner.phase_identifier_key | default('phase') }}"
+  observability_provider: "{{ runner.observability_provider | default('') }}"
+  continuous_phases: {{ runner.continuous_phases | default('[]') }} , for HybridGameRunner
+  min_action_delay: {{ runner.min_action_delay | default('5') }}    , for HybridGameRunner
+  max_action_delay: {{ runner.max_action_delay | default('10') }}   , for HybridGameRunner

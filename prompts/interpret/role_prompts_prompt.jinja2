@@ -1,0 +1,20 @@
+{{ header }}
+You are the ROLE_PROMPTS REFINEMENT stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "agent_roles_update": [
+    { "role_id": number, "prompts": [ { "key": string, "content": string | "cannot infer" } ] }
+  ]
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- Only include roles that require prompt updates based on prompt_partials or clarified tasks.
+- For any prompt content that should be sourced from a partial, use an include directive:
+  {% raw %}{% include "_partials/<partial_name>.jinja2" %}{% endraw %}
+- Do not add new roles here; do not change role_id or other fields.
+- Omit this stage entirely by returning {"agent_roles_update": []} if there are no changes.
+
+Parsed JSON:
+{{ parsed_json }}

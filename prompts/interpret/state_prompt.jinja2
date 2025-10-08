@@ -1,0 +1,19 @@
+{{ header }}
+You are the STATE stage.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "state": {
+    "meta_information": [ { "name": string | "cannot infer", "type": string | "cannot infer", "default": any, "default_factory": string | "cannot infer", "event_key": string | "cannot infer", "exclude_from_mapping": boolean, "optional": boolean, "events": [ string ], "exclude_events": [ string ] } ],
+    "private_information": [ { "name": string | "cannot infer", "type": string | "cannot infer", "default": any, "default_factory": string | "cannot infer", "event_key": string | "cannot infer", "exclude_from_mapping": boolean, "optional": boolean, "events": [ string ], "exclude_events": [ string ] } ],
+    "public_information": [ { "name": string | "cannot infer", "type": string | "cannot infer", "default": any, "default_factory": string | "cannot infer", "event_key": string | "cannot infer", "exclude_from_mapping": boolean, "optional": boolean, "events": [ string ], "exclude_events": [ string ] } ]
+  }
+}
+    
+Rules:
+- Extract configuration ONLY from the provided JSON. Do not infer beyond direct textual or structural evidence.
+- If a field value cannot be determined, set strings to "cannot infer" and lists to [].
+- Preserve field order when evident from parsed JSON; otherwise any order is acceptable.
+
+Parsed JSON:
+{{ parsed_json }}

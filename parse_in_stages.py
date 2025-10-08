@@ -568,8 +568,8 @@ def main():
                 print(f"\033[1;32mStage {stage} completed successfully.\033[0m")
                 print(f"Parsed result:\n{json.dumps(result, indent=2)}")
                 while True:
-                    # feedback = input("Are you satisfied with this result? (y/n): ").strip().lower()
-                    feedback = 'y'  # auto-approve for now
+                    feedback = input("Are you satisfied with this result? (y/n): ").strip().lower()
+                    # feedback = 'y'  # auto-approve for now
                     if feedback in ['y', 'n']:
                         human_satisfied = (feedback == 'y')
                         break
