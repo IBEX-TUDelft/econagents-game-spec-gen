@@ -46,7 +46,7 @@ Two separable loops:
    - `meta`, `roles`, `phases`, `payoff_consequences`, `state`, `settings`, `prompt_partials`.
 3. **Stage 2 (Interpretation)** ingests that JSON and emits:
    - A strict YAML with: name, description, prompt_partials, agent_roles, agents, state (meta/private/public), manager, runner.
-4. **Unknown information** surfaced as `(UPDATE MANUALLY)` for explicit human completion.
+4. **Unknown information** surfaced as `(UPDATE MANUALLY)` for explicit human completion and empty lists as {}.
 
 ---
 ## Stage 1: Text → Structured JSON (`parse_in_stages.py`)
@@ -133,7 +133,7 @@ Policy: *Never hallucinate.* Instead:
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-export OPENAI_API_KEY=sk-...   # set your key (fish/zsh adapt accordingly) or create a .env file
+export OPENAI_API_KEY=sk-... # set your key (fish/zsh adapt accordingly) or create a .env file
 ```
 
 ### (A) Parse a Human Spec to JSON

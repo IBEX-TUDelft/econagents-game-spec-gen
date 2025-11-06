@@ -69,7 +69,7 @@ state:
       exclude_events: {{ field.exclude_events | default('[]') }}
     {% endfor %}
 
-manager: # set by human
+manager:
   type: "{{ manager.type | default('TurnBasedPhaseManager') }}"
   event_handlers:  
     {% for handler in manager.event_handlers %}
@@ -80,7 +80,7 @@ manager: # set by human
       custom_function: "{{ handler.custom_function | default('') }}"
     {% endfor %}
 
-runner: # set by human
+runner:
   type: "{{ runner.type | default('GameRunner') }}"
   protocol: "{{ runner.protocol | default('ws') }}"
   hostname: "{{ runner.hostname }}"
