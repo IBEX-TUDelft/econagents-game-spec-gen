@@ -514,27 +514,46 @@ class StagedGameSpecParser:
         print(f"\033[1;90m{prompt}\033[0m")
 
 def main():
+    
+    skip_human_interaction = False
+    # check for arg --auto <path to game spec>
+    import sys
+    if '--auto' in sys.argv:
+        skip_human_interaction = True
+        auto_index = sys.argv.index('--auto') + 1
+        if auto_index >= len(sys.argv):
+            print("Error: --auto flag requires a path to a game spec file.")
+            return
+        auto_game_spec_path = sys.argv[auto_index]
+        
+    
+    
     parser = StagedGameSpecParser()
     print("\n=== EconAgents Game Spec Staged Parser ===\n")
-    specs = parser.list_game_specs()
-    if not specs:
-        print("No game specs found in the example directory.")
-        return
-    print("Available game specs:")
-    for idx, spec in enumerate(specs):
-        print(f"  [{idx}] {spec}")
-    while True:
-        try:
-            choice = int(input(f"Select a game spec [0-{len(specs)-1}]: "))
-            if 0 <= choice < len(specs):
-                break
-            else:
-                print("Invalid choice. Try again.")
-        except Exception:
-            print("Invalid input. Enter a number.")
-
-    # choice = 3 # auto-select for now
-    parser.select_game_spec(specs[choice])
+    if not skip_human_interaction:
+        specs = parser.list_game_specs()
+        if not specs:
+            print("No game specs found in the example directory.")
+            return
+        print("Available game specs:")
+        for idx, spec in enumerate(specs):
+            print(f"  [{idx}] {spec}")
+        while True:
+            try:
+                choice = int(input(f"Select a game spec [0-{len(specs)-1}]: "))
+                if 0 <= choice < len(specs):
+                    break
+                else:
+                    print("Invalid choice. Try again.")
+            except Exception:
+                print("Invalid input. Enter a number.")
+        parser.select_game_spec(specs[choice])
+        
+    else:
+        parser.select_game_spec(auto_game_spec_path)
+        specs = [auto_game_spec_path]
+        choice = 0
+        
     print(f"Selected spec: {specs[choice]}")
     print("\nStarting staged parsing...")
     while True:
@@ -567,14 +586,17 @@ def main():
                 assert parser.get_stage_error() is None # sanity check
                 print(f"\033[1;32mStage {stage} completed successfully.\033[0m")
                 print(f"Parsed result:\n{json.dumps(result, indent=2)}")
-                while True:
-                    feedback = input("Are you satisfied with this result? (y/n): ").strip().lower()
-                    # feedback = 'y'  # auto-approve for now
-                    if feedback in ['y', 'n']:
-                        human_satisfied = (feedback == 'y')
-                        break
-                    else:
-                        print("Invalid input. Please enter 'y' or 'n'.")
+                if not skip_human_interaction:
+                    while True:
+                        feedback = input("Are you satisfied with this result? (y/n): ").strip().lower()
+                        # feedback = 'y'  # auto-approve for now
+                        if feedback in ['y', 'n']:
+                            human_satisfied = (feedback == 'y')
+                            break
+                        else:
+                            print("Invalid input. Please enter 'y' or 'n'.")
+                else:
+                    human_satisfied = True  # auto-approve in auto mode
                 if not human_satisfied:
                     human_feedback = input("Please provide your feedback for retrying the stage: ").strip()
                     print("Sending retry prompt with human feedback...")

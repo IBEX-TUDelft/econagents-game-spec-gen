@@ -20,11 +20,19 @@ class EventHandler:
     custom_module: Optional[str] = None
     custom_function: Optional[str] = None
 
+# --- Action Option ---
+@dataclass
+class ActionOption:
+    """Represents a JSON action option that an agent can take"""
+    description: str  # human-readable description of the action
+    json_template: str  # the actual JSON structure/template
+    
 # --- Role Prompt Entry ---
 @dataclass
 class RolePromptEntry:
     key: str  # e.g. system, user, system_phase_2, user_phase_6 etc.
     content: str  # mapped to 'value' in template context
+    action_options: List[ActionOption] = field(default_factory=list)  # for actionable prompts
 
 # --- Agent Role Config ---
 @dataclass
@@ -109,7 +117,14 @@ class ExperimentConfig:
         prompt_partials = [asdict(p) for p in (self.prompt_partials or [])]
         agent_roles_ctx: List[Dict[str, Any]] = []
         for r in (self.agent_roles or []):
-            prompts_ctx = [{"key": pe.key, "value": pe.content} for pe in (r.prompts or [])]
+            prompts_ctx = [
+                {
+                    "key": pe.key, 
+                    "value": pe.content,
+                    "action_options": [asdict(ao) for ao in (pe.action_options or [])]
+                } 
+                for pe in (r.prompts or [])
+            ]
             agent_roles_ctx.append({
                 "role_id": r.role_id,
                 "name": r.name,
@@ -161,6 +176,7 @@ def make_state_field_from_json(field_json: Dict[str, Any]) -> StateFieldConfig:
 __all__ = [
     "PromptPartial",
     "EventHandler",
+    "ActionOption",
     "RolePromptEntry",
     "AgentRoleConfig",
     "AgentMappingConfig",

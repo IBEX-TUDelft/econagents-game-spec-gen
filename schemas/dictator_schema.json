@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dictator Game API",
+  "description": "API schema for the Dictator Game where one player allocates money to another",
+  "type": "object",
+  "properties": {
+    "actions": {
+      "type": "array",
+      "description": "Available actions an agent can take",
+      "items": {
+        "oneOf": [
+          {
+            "title": "Allocate Money",
+            "description": "Dictator allocates money to the Receiver",
+            "type": "object",
+            "required": ["gameId", "type", "allocation"],
+            "properties": {
+              "gameId": {
+                "type": "integer",
+                "description": "The ID of the game session"
+              },
+              "type": {
+                "type": "string",
+                "const": "allocate",
+                "description": "Allocation action type"
+              },
+              "allocation": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Amount of money to allocate to the Receiver (non-negative, not exceeding total)"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "examples": [
+    {
+      "actions": [
+        {
+          "gameId": 123,
+          "type": "allocate",
+          "allocation": 5.0
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "gameId": 123,
+          "type": "allocate",
+          "allocation": 0
+        }
+      ]
+    }
+  ]
+}
+

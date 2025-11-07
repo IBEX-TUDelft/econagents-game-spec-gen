@@ -20,6 +20,15 @@ agent_roles:
       - {{ prompt.key }}: |-
 {% for line in prompt.value.splitlines() %}          {{ line }}
 {% endfor %}
+          {% if prompt.action_options %}
+
+          **Your Decision Options**:
+          Provide the output (one of these options) as a JSON object:
+          {% for action in prompt.action_options %}
+          {{ loop.index | string + ". " + action.description }}:
+          {{ action.json_template | indent(10) }}
+          {% endfor %}
+          {% endif %}
       {% endfor %}
     task_phases: {{ role.task_phases | default('[]') }}
     task_phases_excluded: {{ role.task_phases_excluded | default('[]') }}

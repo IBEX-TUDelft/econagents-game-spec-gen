@@ -32,10 +32,21 @@ Rules:
 - Keep each prompt under ~250 tokens.
 - Sort prompts by key ascending. No duplicate keys.
 
+ACTION PLACEHOLDER REQUIREMENT (CRITICAL):
+For ANY user_phase_<n> prompt where the role has tasks (actionable phase), you MUST end the content with this EXACT LINE in a new line:
+
+Provide your decision as JSON: <ACTION_JSON_PLACEHOLDER>
+
+This is MANDATORY for all actionable user phase prompts. Do NOT include any actual JSON examples or formats.
+The placeholder will be filled in a later stage with the actual JSON schema.
+
 Content Assembly Guidance:
 - Base system prompt: brief role identity + include game_description / game_information partials if they exist.
 - Base user prompt (if produced): include game_history (if exists) then game_instructions or equivalent directives.
-- user_phase_<n> prompt: combine relevant include directives + phase-specific instructions; if nothing concrete, content = "cannot infer" (still output the key if tasks exist).
+- user_phase_<n> prompt: 
+  1. Combine relevant include directives + phase-specific instructions
+  2. MUST end with the ACTION_JSON_PLACEHOLDER line (see above)
+  3. If nothing concrete, content = "cannot infer" (still output the key if tasks exist)
 - system_phase_<n> prompt: include system_phase_<n> partial OR fallback to game_description + short objective sentence, else "cannot infer".
 
 Validation you must do BEFORE output:

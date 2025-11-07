@@ -15,6 +15,10 @@ Rules:
 - If any field cannot be determined solely from this JSON, return the literal string "cannot infer" for that field (or [] for list fields).
 - Do not add or omit properties.
 - Output must be valid minified JSON (no trailing text).
+- IMPORTANT: For prompt_partials content, do NOT include any JSON response format examples or "Your Decision Options" sections. 
+  If the partial is for instructions on making choices/decisions, it should end with:
+  "Provide your decision as JSON: <ACTION_JSON_PLACEHOLDER>"
+  This placeholder will be filled in a later stage.
 
 Parsed JSON:
 {{ parsed_json }}

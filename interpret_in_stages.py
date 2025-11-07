@@ -51,7 +51,7 @@ class StagedYamlInterpreter:
                  parsed_json_path: Optional[str] = None,
                  interpret_prompts_dir: str = "prompts/interpret",
                  template_dir: str = "templates",
-                 output_dir: str = "output/experiment_yaml"):
+                 output_dir: str = "output/interpret_out"):
         load_dotenv()
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.llm = ChatOpenAI(api_key=self.api_key)
@@ -413,40 +413,84 @@ class StagedYamlInterpreter:
             return value
         return transform(ctx)
 
-    def render_yaml(self, cfg: ExperimentConfig, output_basename: Optional[str] = None) -> str:
+    def render_yaml(self, cfg: ExperimentConfig, output_basename: Optional[str] = None, final: bool = False) -> str:
+        """
+        Render YAML from config. If final=False, outputs intermediate template for action schema stage.
+        If final=True, outputs final YAML (used after action schema integration).
+        """
         os.makedirs(self.output_dir, exist_ok=True)
         template = self.env.get_template("econagents_template.yaml.jinja2")
         ctx = cfg.to_template_context()
         ctx = self._inject_placeholders_context(ctx)
         ctx_marked = self._mark_unknowns_for_yaml(ctx)
         yaml_text = template.render(**ctx_marked)
+        
         base = output_basename or (os.path.splitext(os.path.basename(self.selected_parsed_json_path))[0] if self.selected_parsed_json_path else "experiment")
-        out_path = os.path.join(self.output_dir, f"{base}.yaml")
+        
+        if final:
+            out_path = os.path.join(self.output_dir, f"{base}.yaml")
+        else:
+            # Output intermediate template for stage 3
+            out_path = os.path.join(self.output_dir, f"{base}_partial.yaml")
+            
         with open(out_path, "w") as f:
             f.write(yaml_text)
+        return out_path
+    
+    def save_stage_results(self, output_basename: Optional[str] = None) -> str:
+        """Save all stage results to JSON for later integration with actions"""
+        os.makedirs(self.output_dir, exist_ok=True)
+        base = output_basename or (os.path.splitext(os.path.basename(self.selected_parsed_json_path))[0] if self.selected_parsed_json_path else "experiment")
+        out_path = os.path.join(self.output_dir, f"{base}_stage_results.json")
+        
+        # Convert stage_results to serializable format
+        results = {}
+        for stage, data in self.stage_results.items():
+            if data is not None:
+                results[stage.value] = data
+        
+        with open(out_path, "w") as f:
+            json.dump(results, f, indent=2)
+        
         return out_path
 
 
 def main():
+
+    skip_human_interaction = False
+    import sys
+    if '--auto' in sys.argv:
+        skip_human_interaction = True
+        auto_index = sys.argv.index('--auto') + 1
+        if auto_index >= len(sys.argv):
+            print("Error: --auto flag requires a path to a game spec json file.")
+            return
+        auto_game_spec_path = sys.argv[auto_index]
+    
+    
     print(f"\n{BLUE}=== EconAgents YAML Interpreter (Staged) ==={RESET}\n")
     runner = StagedYamlInterpreter()
-    specs = runner.list_parsed_specs()
-    if not specs:
-        print(f"{RED}No parsed JSON files found in output/parse_out or examples.{RESET}")
-        return
-    print("Available parsed JSON files:")
-    for idx, spec in enumerate(specs):
-        print(f"  [{idx}] {spec}")
-    while True:
-        try:
-            choice = int(input(f"Select a parsed spec [0-{len(specs)-1}]: "))
-            if 0 <= choice < len(specs):
-                break
-        except Exception:
-            pass
-        print("Invalid input. Enter a number.")
-    runner.select_parsed_json(specs[choice])
-    print(f"Selected: {specs[choice]}")
+    if not skip_human_interaction:
+        specs = runner.list_parsed_specs()
+        if not specs:
+            print(f"{RED}No parsed JSON files found in output/parse_out or examples.{RESET}")
+            return
+        print("Available parsed JSON files:")
+        for idx, spec in enumerate(specs):
+            print(f"  [{idx}] {spec}")
+        while True:
+            try:
+                choice = int(input(f"Select a parsed spec [0-{len(specs)-1}]: "))
+                if 0 <= choice < len(specs):
+                    break
+            except Exception:
+                pass
+            print("Invalid input. Enter a number.")
+        runner.select_parsed_json(specs[choice])
+        print(f"Selected: {specs[choice]}")
+    else:
+        runner.select_parsed_json(auto_game_spec_path)
+        print(f"Auto mode: Selected parsed JSON: {auto_game_spec_path}")
 
     # Stage loop
     while True:
@@ -482,22 +526,27 @@ def main():
                 result = runner.stage_results[stage]
                 print(f"{GREEN}Stage {stage.value} completed successfully.{RESET}")
                 print(json.dumps(result, indent=2))
-                ok = input("Accept this result? (y/n): ").strip().lower() or "y"
-                if ok == "y":
-                    break
+                if not skip_human_interaction:
+                    ok = input("Accept this result? (y/n): ").strip().lower() or "y"
+                    if ok == "y":
+                        break
+                    else:
+                        fb = input("Enter feedback to retry: ")
+                        runner.retry_stage(fb)
+                        runner.wait_for_llm()
+                        continue
                 else:
-                    fb = input("Enter feedback to retry: ")
-                    runner.retry_stage(fb)
-                    runner.wait_for_llm()
-                    continue
+                    print(f"{GREEN}Auto-accepting result.{RESET}")
+                    break
         next_stage = runner.next_stage()
         if not next_stage:
             print(f"{GREEN}All interpretation stages completed.{RESET}")
             break
 
     cfg = runner._merge_into_config()
-    out_path = runner.render_yaml(cfg)
-    print(f"{GREEN}Final YAML written to: {out_path}{RESET}")
+    out_path = runner.render_yaml(cfg, final=False)
+    print(f"{GREEN}YAML template written to: {out_path}{RESET}")
+    print(f"{YELLOW}Next step: Run action_schema_interpret.py with this template and a JSON schema{RESET}")
 
 if __name__ == "__main__":
     main()

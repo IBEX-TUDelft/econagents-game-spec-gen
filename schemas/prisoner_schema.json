@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prisoner's Dilemma Game API",
+  "description": "API schema for agents playing the Prisoner's Dilemma game. Agents must choose to either cooperate or defect in each round.",
+  "type": "object",
+  "properties": {
+    "actions": {
+      "type": "array",
+      "description": "Available actions an agent can take",
+      "items": {
+        "oneOf": [
+          {
+            "title": "Make Choice",
+            "description": "Choose to cooperate (remain silent) or defect (testify)",
+            "type": "object",
+            "required": ["gameId", "type", "choice"],
+            "properties": {
+              "gameId": {
+                "type": "integer",
+                "description": "The ID of the game session"
+              },
+              "type": {
+                "type": "string",
+                "const": "choice",
+                "description": "Action type identifier"
+              },
+              "choice": {
+                "type": "string",
+                "enum": ["COOPERATE", "DEFECT"],
+                "description": "COOPERATE = remain silent, DEFECT = testify against partner"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "examples": [
+    {
+      "actions": [
+        {
+          "gameId": 123,
+          "type": "choice",
+          "choice": "COOPERATE"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "gameId": 123,
+          "type": "choice",
+          "choice": "DEFECT"
+        }
+      ]
+    }
+  ]
+}
+

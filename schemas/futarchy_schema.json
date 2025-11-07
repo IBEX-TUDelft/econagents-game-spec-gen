@@ -1,0 +1,225 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Futarchy Land Development Game API",
+  "description": "API schema for the futarchy prediction market game involving land development decisions, property speculation, and tax share trading.",
+  "type": "object",
+  "properties": {
+    "actions": {
+      "type": "array",
+      "description": "Available actions agents can take during different phases",
+      "items": {
+        "oneOf": [
+          {
+            "title": "Declare Land Value",
+            "description": "Developer or Owner declares land value under both project scenarios (used in phases 2 and 7)",
+            "type": "object",
+            "required": ["gameId", "type", "declaration"],
+            "properties": {
+              "gameId": {
+                "type": "integer",
+                "description": "The game session ID"
+              },
+              "type": {
+                "type": "string",
+                "const": "declare",
+                "description": "Declaration action type"
+              },
+              "declaration": {
+                "type": "array",
+                "description": "Array with [value_no_project, value_project, 0]",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "title": "Post Market Order",
+            "description": "Post a bid or ask order for tax shares in prediction markets (used in phase 6)",
+            "type": "object",
+            "required": ["gameId", "type", "order"],
+            "properties": {
+              "gameId": {
+                "type": "integer",
+                "description": "The game session ID"
+              },
+              "type": {
+                "type": "string",
+                "const": "post-order",
+                "description": "Market order posting action"
+              },
+              "order": {
+                "type": "object",
+                "required": ["price", "quantity", "type", "now", "condition"],
+                "properties": {
+                  "price": {
+                    "type": "number",
+                    "description": "Price per share (set to 0 if now=true, will be ignored)"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "const": 1,
+                    "description": "Always 1 share per order"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["ask", "bid"],
+                    "description": "ask = sell offer, bid = buy offer"
+                  },
+                  "now": {
+                    "type": "boolean",
+                    "description": "If true, execute immediately at best available price"
+                  },
+                  "condition": {
+                    "type": "integer",
+                    "enum": [0, 1],
+                    "description": "0 = no project market, 1 = project market"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "title": "Cancel Order",
+            "description": "Cancel an existing market order (used in phase 6)",
+            "type": "object",
+            "required": ["gameId", "type", "order"],
+            "properties": {
+              "gameId": {
+                "type": "integer",
+                "description": "The game session ID"
+              },
+              "type": {
+                "type": "string",
+                "const": "cancel-order",
+                "description": "Order cancellation action"
+              },
+              "order": {
+                "type": "object",
+                "required": ["id", "condition"],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "The order ID to cancel"
+                  },
+                  "condition": {
+                    "type": "integer",
+                    "enum": [0, 1],
+                    "description": "0 = no project market, 1 = project market"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "title": "Speculator Property Purchase",
+            "description": "Speculator finalizes property purchases (used in phases 3 and 8)",
+            "type": "object",
+            "required": ["gameId", "type", "snipe"],
+            "properties": {
+              "gameId": {
+                "type": "integer",
+                "description": "The game session ID"
+              },
+              "type": {
+                "type": "string",
+                "const": "done-speculating",
+                "description": "Speculation completion action"
+              },
+              "snipe": {
+                "type": "array",
+                "description": "[[no_project_player_ids], [project_player_ids]] - which properties to purchase under each condition",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "description": "Player ID whose property to purchase"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "title": "Do Nothing",
+            "description": "Skip turn or do nothing this phase",
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "examples": [
+    {
+      "description": "Developer declares land values",
+      "action": {
+        "gameId": 1,
+        "type": "declare",
+        "declaration": [350000, 1150000, 0]
+      }
+    },
+    {
+      "description": "Post a bid order to buy shares in no-project market",
+      "action": {
+        "gameId": 1,
+        "type": "post-order",
+        "order": {
+          "price": 100,
+          "quantity": 1,
+          "type": "bid",
+          "now": false,
+          "condition": 0
+        }
+      }
+    },
+    {
+      "description": "Post an ask order to sell shares immediately",
+      "action": {
+        "gameId": 1,
+        "type": "post-order",
+        "order": {
+          "price": 0,
+          "quantity": 1,
+          "type": "ask",
+          "now": true,
+          "condition": 1
+        }
+      }
+    },
+    {
+      "description": "Cancel an order",
+      "action": {
+        "gameId": 1,
+        "type": "cancel-order",
+        "order": {
+          "id": "order_abc123",
+          "condition": 0
+        }
+      }
+    },
+    {
+      "description": "Speculator purchases properties from players 1,2,4 in no-project and player 2 in project",
+      "action": {
+        "gameId": 1,
+        "type": "done-speculating",
+        "snipe": [[1, 2, 4], [2]]
+      }
+    },
+    {
+      "description": "Do nothing this turn",
+      "action": {}
+    }
+  ]
+}
+
