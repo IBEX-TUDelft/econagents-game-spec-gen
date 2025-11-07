@@ -131,50 +131,19 @@ class ActionSchemaInterpreter:
     
     def _render_prompt_for_placeholder(self, placeholder_info: Dict[str, Any]) -> str:
         """Render a prompt to ask LLM for JSON for this specific placeholder"""
+        from jinja2 import Template
+        
         context = placeholder_info['context']
         
-        header = (
-            "You are an assistant that interprets JSON schemas to generate action instructions for LLM agents.\n"
-            "Your task: Analyze the JSON schema and generate a clear, concise instruction for what JSON the agent should output.\n"
-            "Return STRICT JSON only."
-        )
+        # Load the template
+        template_str = self._get_prompt_template()
+        template = Template(template_str)
         
-        prompt = f"""{header}
-
-Context:
-- Role: {context['role']}
-- Prompt Key: {context['prompt_key']}
-- Prompt Content (last part):
-{context['prompt_content']}
-
-JSON Schema:
-{self.schema_content}
-
-Your task:
-1. Analyze the JSON schema to understand what actions/messages are valid
-2. Determine which action(s) are relevant for this prompt based on the context
-3. Generate a clear instruction telling the agent what JSON to output
-
-Return STRICT JSON with this schema:
-{{
-  "instruction": string  // Complete instruction text including JSON examples
-}}
-
-The instruction should:
-- Start with "Provide your decision as JSON:"
-- List each valid option (A, B, C, etc.)
-- Show the EXACT JSON structure for each option
-- Use angle brackets for placeholders like <number>, <player_id>, etc.
-- NOT use Jinja2 variables - those are already in the prompt context
-- Be clear and concise
-
-Example output:
-{{
-  "instruction": "Provide your decision as JSON:\\n\\nA. Cooperate:\\n{{\\n  \\"gameId\\": <game_id>,\\n  \\"type\\": \\"choice\\",\\n  \\"choice\\": \\"COOPERATE\\"\\n}}\\n\\nB. Defect:\\n{{\\n  \\"gameId\\": <game_id>,\\n  \\"type\\": \\"choice\\",\\n  \\"choice\\": \\"DEFECT\\"\\n}}"
-}}
-
-NOW generate the instruction for the context above:
-"""
+        # Render with context
+        prompt = template.render(
+            prompt_context=context['prompt_content'],
+            json_schema=self.schema_content
+        )
         
         self.last_prompt = prompt
         return prompt
@@ -219,6 +188,9 @@ NOW generate the instruction for the context above:
             try:
                 data = json.loads(self.last_llm_response)
                 instruction = data.get('instruction', '')
+                
+                # Unescape the instruction (LLM returns escaped newlines, etc.)
+                instruction = instruction.encode().decode('unicode_escape')
                 
                 print(f"{GREEN}✓ Generated instruction ({len(instruction)} chars){RESET}")
                 

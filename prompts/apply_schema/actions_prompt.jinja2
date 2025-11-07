@@ -1,0 +1,46 @@
+{{ header }}
+You are the ACTION SCHEMA INTERPRETATION stage.
+
+Your task is to analyze the provided JSON schema (which may be an OpenAPI spec or other format) and generate the specific JSON action options that agents can take for each actionable prompt.
+
+Return STRICT JSON with this exact schema (and nothing else):
+{
+  "action_mappings": [
+    {
+      "role_id": number,
+      "prompt_key": string,  // e.g., "user_phase_3"
+      "action_options": [
+        {
+          "description": string,  // brief description of what this action does
+          "json_template": string  // the exact JSON structure the agent must send
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Extract configuration ONLY from the provided JSON schema. Do not infer beyond direct textual or structural evidence.
+- For each actionable prompt (those with placeholders for actions), you must provide action options.
+- The json_template should be a complete, valid JSON string that can be inserted into the YAML prompt.
+- Use angle brackets for placeholders where values need to be filled in by agents (e.g., <number>, <player_id>, <order_id>).
+- For template variables that come from game state, use this format: "gameId": <game_id> (the system will convert to proper Jinja2 syntax).
+- Include clear descriptions for each action option so the agent understands what it can do.
+- If you cannot determine action options for a particular prompt from the schema, set action_options to [] for that mapping.
+- The action_options list typically includes:
+  * Primary action(s) the agent can take
+  * Optional alternative actions
+  * A "do nothing" or "skip" option if applicable
+- Use the schema's description fields and property definitions to understand what values are valid
+
+Current YAML Template Context (with ACTION_OPTIONS_PLACEHOLDER markers):
+{{ yaml_template }}
+
+JSON Schema Specification:
+{{ json_schema }}
+
+Parsed Game Spec for Context:
+{{ parsed_json }}
+
+(END)
+
