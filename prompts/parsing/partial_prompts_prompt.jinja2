@@ -57,7 +57,7 @@ This is the first round.
 5. User partials (user_<roleName>_<phaseNumber>):
    - Provide concrete instructions for what the agent must output in THAT phase for THAT role.
    - If tasks mention making a choice, enumerate valid action tokens if they appear in the spec.
-   - For every actionable task, there must be a placeholder for the JSON schema output, use the string "<Insert JSON schema for task here>".
+   - For every actionable task, there must be a placeholder for the JSON schema output, use the string "<Insert JSON schema for task here>", DO NOT TRY TO FILL IT IN.
    - Include a section titled "Game Information" that embeds the game_information partial by referencing (do NOT inline its content) with:
 {% raw %}{% include "_partials/game_information.jinja2" %}{% endraw %}
    - Optionally also include game_history where helpful using:
@@ -81,7 +81,7 @@ This is the first round.
    - If multiple payoff consequences describe combinations, summarize the payoff structure succinctly (e.g., "Mutual cooperate yields 3 each; unilateral defect yields 5/0; mutual defect yields 1 each").
 
 Process Guidance (You must internally follow, but DO NOT output these steps):
-- Derive action tokens by scanning role_tasks text for verbs like "cooperate", "defect", or explicit enumerations.
+- Derive action tokens by scanning role_tasks text for verbs like "cooperate", "defect", "buy" ..... or explicit enumerations.
 - Map payoff consequences to a compact descriptive summary ONLY if they match the role & actionable phase.
 - If no structured action tokens exist, instruct the agent to output a concise natural language answer relevant to the task.
 
@@ -93,7 +93,7 @@ Validation Rules (Hard):
 - Do NOT add names not present in the provided SKELETON list.
 
 Edge Cases:
-- If there is only one role and one actionable phase, still follow naming conventions (e.g., system_prisoner_1, user_prisoner_1).
+- If there is only one role and one actionable phase, still follow naming conventions (e.g., system_<role>_1, user_<role>_1).
 - If a role participates in a non-actionable phase, skip that phase.
 
 Return ONLY the JSON.

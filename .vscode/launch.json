@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Run parse_in_stages --auto dictator",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/parse_in_stages.py",
+      "console": "integratedTerminal",
+      "args": ["--auto", "${workspaceFolder}/game_spec/dictator.md"],
+      "envFile": "${workspaceFolder}/.env",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    }
+  ]
+}

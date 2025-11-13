@@ -95,9 +95,17 @@ class StagedGameSpecParser:
         self.llm = ChatOpenAI(api_key=self.api_key)
         self.game_spec_dir = game_spec_dir
         self.prompt_dir = prompt_dir
+        # Stage order is configurable. Change DEFAULT_STAGE_ORDER to add/shift stages.
         self.state = ParserState.IDLE
         self.current_stage_idx = 0
-        self.stages = [Stage.META_ROLES_PHASES, Stage.STATE, Stage.SETTINGS_UI, Stage.PARTIAL_PROMPTS]
+        # Default stage ordering - easy to edit or pass a custom order to the constructor
+        DEFAULT_STAGE_ORDER = [
+            Stage.META_ROLES_PHASES,
+            Stage.STATE,
+            Stage.SETTINGS_UI,
+            Stage.PARTIAL_PROMPTS,
+        ]
+        self.stages = DEFAULT_STAGE_ORDER
         self.stage_results: Dict[Stage, Any] = {stage: None for stage in self.stages}
         self.stage_errors: Dict[Stage, Optional[str]] = {stage: None for stage in self.stages}
         self.lock = threading.Lock()
@@ -139,13 +147,17 @@ class StagedGameSpecParser:
             self.game_spec = GameSpec()
 
     def _get_prompt_template(self, stage: Stage) -> str:
+        # use a single place to map stages to template filenames; adding a new stage is just a new mapping
         prompt_map = {
             Stage.META_ROLES_PHASES: "meta_roles_phases_prompt.jinja2",
             Stage.STATE: "state_prompt.jinja2",
             Stage.SETTINGS_UI: "settings_ui_prompt.jinja2",
             Stage.PARTIAL_PROMPTS: "partial_prompts_prompt.jinja2",
         }
-        template_path = os.path.join(self.prompt_dir, prompt_map[stage])
+        template_name = prompt_map.get(stage)
+        if template_name is None:
+            raise KeyError(f"No prompt template configured for stage {stage}")
+        template_path = os.path.join(self.prompt_dir, template_name)
         with open(template_path, "r") as f:
             return f.read()
 
@@ -157,72 +169,91 @@ class StagedGameSpecParser:
         """
         Compose context for the current stage, including relevant data from previous stages.
         """
-        context_sections = []
-        if stage == Stage.STATE:
-            meta = self.stage_results.get(Stage.META_ROLES_PHASES, {})
-            if meta:
-                context_sections.append("ROLES:\n" + json.dumps(meta.get("roles", []), indent=2))
-                context_sections.append("PHASES:\n" + json.dumps(meta.get("phases", []), indent=2))
-                context_sections.append("PAYOFF CONSEQUENCES:\n" + json.dumps(meta.get("payoff_consequences", []), indent=2))
-        elif stage == Stage.SETTINGS_UI:
-            meta = self.stage_results.get(Stage.META_ROLES_PHASES, {})
-            state = self.stage_results.get(Stage.STATE, {})
-            if meta:
-                context_sections.append("META:\n" + json.dumps(meta.get("meta", {}), indent=2))
-                context_sections.append("ROLES:\n" + json.dumps(meta.get("roles", []), indent=2))
-                context_sections.append("PHASES:\n" + json.dumps(meta.get("phases", []), indent=2))
-            if state:
-                context_sections.append("STATE VARIABLES:\n" + json.dumps(state.get("state", {}), indent=2))
-        elif stage == Stage.PARTIAL_PROMPTS:
-            meta_stage = self.stage_results.get(Stage.META_ROLES_PHASES, {})
-            state_stage = self.stage_results.get(Stage.STATE, {})
-            settings_stage = self.stage_results.get(Stage.SETTINGS_UI, {})
-            roles = meta_stage.get("roles", []) if meta_stage else []
-            phases = meta_stage.get("phases", []) if meta_stage else []
-            payoff = meta_stage.get("payoff_consequences", []) if meta_stage else []
-            context_sections.append("ROLES:\n" + json.dumps(roles, indent=2))
-            context_sections.append("PHASES:\n" + json.dumps(phases, indent=2))
-            context_sections.append("PAYOFF CONSEQUENCES:\n" + json.dumps(payoff, indent=2))
-            if state_stage:
-                context_sections.append("STATE VARIABLES:\n" + json.dumps(state_stage.get("state", {}), indent=2))
-            if settings_stage:
-                context_sections.append("SETTINGS:\n" + json.dumps(settings_stage.get("settings", {}), indent=2))
-            # Build skeleton and record expected names
-            skeleton = []
-            self.expected_partial_names = []
-            def add_partial(name: str, **extra):
-                skeleton.append({"name": name, "content": "", **extra})
-                self.expected_partial_names.append(name)
-            add_partial("game_description")
-            add_partial("game_information")
-            add_partial("game_history")  # added generic history partial
-            def to_snake(name: str) -> str:
-                return name.lower().replace(" ", "_")
-            for ph in phases:
-                if not ph.get("actionable"):
+        # Routing to small, stage-specific composer functions keeps this method short and makes adding stages easy.
+        composer = {
+            Stage.META_ROLES_PHASES: lambda: "",
+            Stage.STATE: self._compose_context_state,
+            Stage.SETTINGS_UI: self._compose_context_settings_ui,
+            Stage.PARTIAL_PROMPTS: self._compose_context_partial_prompts,
+        }.get(stage)
+        if composer is None:
+            return ""
+        body = composer()
+        return "\n--- CONTEXT ---\n" + body if body else ""
+
+    # --- per-stage context composers (split out for clarity) ---
+    def _compose_context_state(self) -> str:
+        meta = self.stage_results.get(Stage.META_ROLES_PHASES, {}) or {}
+        parts = []
+        if meta:
+            parts.append("ROLES:\n" + json.dumps(meta.get("roles", []), indent=2))
+            parts.append("PHASES:\n" + json.dumps(meta.get("phases", []), indent=2))
+            parts.append("PAYOFF CONSEQUENCES:\n" + json.dumps(meta.get("payoff_consequences", []), indent=2))
+        return "\n\n".join(parts)
+
+    def _compose_context_settings_ui(self) -> str:
+        meta = self.stage_results.get(Stage.META_ROLES_PHASES, {}) or {}
+        state = self.stage_results.get(Stage.STATE, {}) or {}
+        parts = []
+        if meta:
+            parts.append("META:\n" + json.dumps(meta.get("meta", {}), indent=2))
+            parts.append("ROLES:\n" + json.dumps(meta.get("roles", []), indent=2))
+            parts.append("PHASES:\n" + json.dumps(meta.get("phases", []), indent=2))
+        if state:
+            parts.append("STATE VARIABLES:\n" + json.dumps(state.get("state", {}), indent=2))
+        return "\n\n".join(parts)
+
+    def _compose_context_partial_prompts(self) -> str:
+        meta_stage = self.stage_results.get(Stage.META_ROLES_PHASES, {}) or {}
+        state_stage = self.stage_results.get(Stage.STATE, {}) or {}
+        settings_stage = self.stage_results.get(Stage.SETTINGS_UI, {}) or {}
+        roles = meta_stage.get("roles", [])
+        phases = meta_stage.get("phases", [])
+        payoff = meta_stage.get("payoff_consequences", [])
+        parts = [
+            "ROLES:\n" + json.dumps(roles, indent=2),
+            "PHASES:\n" + json.dumps(phases, indent=2),
+            "PAYOFF CONSEQUENCES:\n" + json.dumps(payoff, indent=2),
+        ]
+        if state_stage:
+            parts.append("STATE VARIABLES:\n" + json.dumps(state_stage.get("state", {}), indent=2))
+        if settings_stage:
+            parts.append("SETTINGS:\n" + json.dumps(settings_stage.get("settings", {}), indent=2))
+        # Build skeleton and record expected names
+        skeleton = []
+        self.expected_partial_names = []
+        def add_partial(name: str, **extra):
+            skeleton.append({"name": name, "content": "", **extra})
+            self.expected_partial_names.append(name)
+        add_partial("game_description")
+        add_partial("game_information")
+        add_partial("game_history")
+        def to_snake(name: str) -> str:
+            return name.lower().replace(" ", "_")
+        for ph in phases:
+            if not ph.get("actionable"):
+                continue
+            phase_number = ph.get("phase_number")
+            phase_name = ph.get("phase")
+            role_tasks = ph.get("role_tasks", {}) or {}
+            for role_name, tasks in role_tasks.items():
+                if not tasks:
                     continue
-                phase_number = ph.get("phase_number")
-                phase_name = ph.get("phase")
-                role_tasks = ph.get("role_tasks", {}) or {}
-                for role_name, tasks in role_tasks.items():
-                    if not tasks:
-                        continue
-                    role_snake = to_snake(role_name)
-                    system_name = f"system_{role_snake}_{phase_number}"
-                    user_name = f"user_{role_snake}_{phase_number}"
-                    add_partial(system_name, phase=phase_name, phase_number=phase_number, role=role_name, tasks=tasks)
-                    add_partial(user_name, phase=phase_name, phase_number=phase_number, role=role_name, tasks=tasks)
-            context_sections.append("SKELETON:\n" + json.dumps(skeleton, indent=2))
-        return "\n--- CONTEXT ---\n" + "\n\n".join(context_sections) if context_sections else ""
+                role_snake = to_snake(role_name)
+                system_name = f"system_{role_snake}_{phase_number}"
+                user_name = f"user_{role_snake}_{phase_number}"
+                add_partial(system_name, phase=phase_name, phase_number=phase_number, role=role_name, tasks=tasks)
+                add_partial(user_name, phase=phase_name, phase_number=phase_number, role=role_name, tasks=tasks)
+        parts.append("SKELETON:\n" + json.dumps(skeleton, indent=2))
+        return "\n\n".join(parts)
 
     def _render_prompt(self, stage: Stage, context: Optional[str] = None , include_game_spec = True) -> str:
         template_str = self._get_prompt_template(stage)
         tpl = Template(template_str)
         instructions = self._get_instructions()
-        header = f"You are parsing stage: {stage.value}."
+        header = f"You are parsing stage: {stage.value}. \n DO NOT INFER ANYTHING NOT DIRECTLY SPECIFIED IN THE GAME SPECIFICATION. \n Any Fields that are not explicitly specified should be set to <Cannot Infer>. \n Do not use markdown syntax in your response."
         schema_section = ""
-        prompt = tpl.render(instructions=instructions, context=context or "", header=header, schema=schema_section)
-        full_prompt = f"{header}\n{context or ''}\n{prompt}"
+        full_prompt = tpl.render(instructions=instructions, context=context or "", header=header, schema=schema_section)
         self.last_prompt = full_prompt
         if include_game_spec:
             return full_prompt
@@ -230,7 +261,7 @@ class StagedGameSpecParser:
             # recreate without instructions but without updating state
             dry_instructions = "[Game instructions omitted (in this view only)]"
             dry_prompt = tpl.render(instructions=dry_instructions, context=context or "", header=header, schema=schema_section)
-            return f"{header}\n{context or ''}\n{dry_prompt}"
+            return dry_prompt
 
 
     async def _run_llm_async(self, prompt: str) -> str:
@@ -306,6 +337,7 @@ class StagedGameSpecParser:
         self.state = ParserState.SUCCESS
 
     def _validate_stage(self, stage: Stage, data: Any) -> Tuple[bool, Optional[str]]:  # corrected type hint
+        # validation routing - keeps checks grouped and easy to extend with new stage validators
         if stage == Stage.META_ROLES_PHASES:
             required = ["meta", "roles", "phases", "payoff_consequences"]
             missing = [k for k in required if k not in data]
@@ -340,6 +372,7 @@ class StagedGameSpecParser:
         return True, None
 
     def _update_game_spec(self, stage: Stage, data: Any):
+        # Keep update logic explicit and grouped to make changes easy to find
         if stage == Stage.META_ROLES_PHASES:
             meta = data["meta"]
             self.game_spec.meta = Meta(**meta)
