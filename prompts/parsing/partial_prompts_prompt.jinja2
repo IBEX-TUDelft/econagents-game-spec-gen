@@ -52,14 +52,12 @@ This is the first round.
    - Do NOT include instructions or decision guidance here; just factual recap.
 4. System partials (system_<roleName>_<phaseNumber>):
    - Provide stable identity + role framing + high level objective for that role in that specific actionable phase.
-   - Include a very brief recap (1–3 lines) of relevant payoff logic IF present in actionable tasks or payoff_consequences.
+   - Include a very brief recap (1-3 lines) of relevant payoff logic IF present in actionable tasks or payoff_consequences.
    - Should NOT specify exact output formatting (leave that to user partials).
 5. User partials (user_<roleName>_<phaseNumber>):
    - Provide concrete instructions for what the agent must output in THAT phase for THAT role.
-   - If tasks mention making a choice, enumerate valid action tokens in ALL CAPS (e.g., COOPERATE, DEFECT) if they appear in the spec.
-   - If the output must be JSON, give a minimal JSON schema example (only required fields). Use Jinja placeholders for dynamic values:
-{% raw %} {{ meta.game_id }}, {{ meta.phase }}, {{ meta.player_number }}, {{ meta.role }} {% endraw %}
-     Only include fields that can be inferred from the spec.
+   - If tasks mention making a choice, enumerate valid action tokens if they appear in the spec.
+   - For every actionable task, there must be a placeholder for the JSON schema output, use the string "<Insert JSON schema for task here>".
    - Include a section titled "Game Information" that embeds the game_information partial by referencing (do NOT inline its content) with:
 {% raw %}{% include "_partials/game_information.jinja2" %}{% endraw %}
    - Optionally also include game_history where helpful using:
