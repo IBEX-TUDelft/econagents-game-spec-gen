@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 from econagents.config_parser.base import run_experiment_from_yaml
-from test.prisoner.server.create_game import create_game_from_specs
+from test_game_servers.prisoner.server.create_game import create_game_from_specs
 
 async def main():
     """Main function to run the game."""

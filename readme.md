@@ -8,13 +8,13 @@ Transform natural language economic game descriptions into validated EconAgents 
  Raw Game Specification (Markdown / plain text)
                 │
                 V
-      parse_in_stages.py (LLM stages: meta+roles+phases → state →  prompt_partials)
+      parse_in_stages.py (LLM stages: meta+roles+phases \( \rightarrow \) state \( \rightarrow \)  prompt_partials)
                 │  (Validated, feedback-capable JSON extraction)
                 V
      Intermediate Structured JSON (output/parse_out/*.json)
                 │
                 V
-  interpret_in_stages.py (LLM stages: meta → roles → state → manager → runner → agents → prompt refinement)
+  interpret_in_stages.py (LLM stages: meta \( \rightarrow \) roles \( \rightarrow \) state \( \rightarrow \) manager \( \rightarrow \) runner \( \rightarrow \) agents \( \rightarrow \) prompt refinement)
                 │  (Strict schemas, unknown sentinel handling, file generation)
                 V
       Final YAML file (output/experiment_yaml/*.yaml)
@@ -29,10 +29,10 @@ Two separable loops:
 | Path | Purpose |
 |------|---------|
 | `game_spec/` | Source human-readable specs (input to Stage 1). |
-| `parse_in_stages.py` | First pipeline: text → structured JSON. |
+| `parse_in_stages.py` | First pipeline: text \( \rightarrow \) structured JSON. |
 | `prompts/parsing/` | Jinja2 prompt templates for parsing stages. |
 | `output/parse_out/` | Generated intermediate JSON specs. |
-| `interpret_in_stages.py` | Second pipeline: JSON → final YAML. |
+| `interpret_in_stages.py` | Second pipeline: JSON \( \rightarrow \) final YAML. |
 | `prompts/interpret/` | Prompt templates for interpretation stages (strict schemas). |
 | `yaml_dataclasses.py` | Python dataclasses mirroring YAML schema. |
 | `templates/econagents_template.yaml.jinja2` | Immutable final YAML template. |
@@ -49,7 +49,7 @@ Two separable loops:
 4. **Unknown information** surfaced as `(UPDATE MANUALLY)` for explicit human completion and empty lists as {}.
 
 ---
-## Stage 1: Text → Structured JSON (`parse_in_stages.py`)
+## Stage 1: Text \( \rightarrow \) Structured JSON (`parse_in_stages.py`)
 Stages (fixed order):
 1. `meta_roles_phases` – Extracts metadata, list of roles (with notes / tasks), phases (actionability & role tasks), payoff consequences.
 2. `state` – Candidate state variables & classifications.
@@ -62,7 +62,7 @@ Features:
 - Writes final JSON snapshot to `output/parse_out/<spec_name>_YYYYmmdd_HHMMSS.json`.
 
 ---
-## 6. Stage 2: JSON → YAML (`interpret_in_stages.py`)
+## 6. Stage 2: JSON \( \rightarrow \) YAML (`interpret_in_stages.py`)
 Stages (default sequence):
 1. `meta`  
 2. `roles`  
@@ -101,7 +101,7 @@ Prompts inside each role are rendered as a list of single‑key mappings; this m
 ## Dataclasses Mapping (`yaml_dataclasses.py`)
 Core classes: `ExperimentConfig`, `PromptPartial`, `AgentRoleConfig`, `RolePromptEntry`, `StateFieldConfig`, `ManagerConfig`, `RunnerConfig`.
 
-`ExperimentConfig.to_template_context()` transforms internal Python objects into the dictionary consumed by the Jinja2 template, also normalizing `RolePromptEntry.content` → `value` for the template’s `prompt.value` access pattern.
+`ExperimentConfig.to_template_context()` transforms internal Python objects into the dictionary consumed by the Jinja2 template, also normalizing `RolePromptEntry.content` \( \rightarrow \) `value` for the template’s `prompt.value` access pattern.
 
 ---
 ## Prompt Templates & Schemas
@@ -118,7 +118,7 @@ You can modify or add interpretation stages by:
 ## Handling Unknown / Missing Fields
 Policy: *Never hallucinate.* Instead:
 - LLM returns `"cannot infer"` (string) or `[]` (empty list) for unknown fields.
-- During interpretation merge, `"cannot infer"` → `None` (Python) for scalars.
+- During interpretation merge, `"cannot infer"` \( \rightarrow \) `None` (Python) for scalars.
 - Prior to YAML render, any `None` scalar is converted to `(UPDATE MANUALLY)` for clarity.
 - Empty lists are sometimes given a placeholder element (in Stage 2 rendering) so the YAML shows an explicit location to edit rather than an invisible omission.
 
