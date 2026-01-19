@@ -1,3 +1,58 @@
+"""
+Stage 2: JSON to YAML Configuration Interpreter
+
+This module implements the second stage of the EconAgents game specification pipeline.
+It converts structured JSON (from Stage 1) into validated YAML configurations and prompt
+partial files ready for use with the EconAgents framework.
+
+The interpreter uses a seven-stage process:
+1. META: Extract experiment name, description, and prompt partials
+2. ROLES: Define agent roles with LLM configurations and prompts
+3. STATE: Map state variables to YAML schema
+4. MANAGER: Configure game manager and event handlers
+5. RUNNER: Configure game runner parameters
+6. AGENTS: Map individual agents to roles
+7. ROLE_PROMPTS_REFINEMENT: Final validation and refinement of prompts
+
+Each stage enforces strict JSON schemas with "cannot infer" policy for missing data.
+Stages support auto-retry on validation failure and human feedback injection.
+
+Typical usage:
+    interpreter = StagedYamlInterpreter()
+    interpreter.select_parsed_json("output/parse_out/prisoner_20260119.json")
+    
+    # Interactive execution with auto-retry
+    for stage in interpreter.stages:
+        interpreter.run_stage()
+        interpreter.wait_for_llm()
+        if interpreter.state == RunnerState.SUCCESS:
+            interpreter.next_stage()
+    
+    # Render final YAML
+    config = interpreter._merge_into_config()
+    output_path = interpreter.render_yaml(config)
+
+Classes:
+    Stage: Enum defining interpretation stages
+    RunnerState: Enum tracking interpreter execution state
+    StagedYamlInterpreter: Main interpreter orchestrator
+
+Key Features:
+    - Strict schema validation per stage
+    - Auto-retry with configurable limits
+    - Unknown value handling ("cannot infer" -> "(UPDATE MANUALLY)")
+    - Jinja2-based YAML rendering
+    - Prompt partial file generation
+
+See Also:
+    parse_in_stages.py: Stage 1 pipeline (text to JSON)
+    yaml_dataclasses.py: YAML configuration data models
+    templates/econagents_template.yaml.jinja2: Final YAML template
+    prompts/interpret/: Prompt templates for each stage
+    ARCHITECTURE.md: System architecture documentation
+    STAGE_PIPELINE.md: Detailed stage documentation
+"""
+
 import os
 import json
 import threading

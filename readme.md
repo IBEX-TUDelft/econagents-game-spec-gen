@@ -1,28 +1,37 @@
 # EconAgents Game Spec Generation Pipeline
 
-Transform natural language economic game descriptions into validated EconAgents YAML configurations in two LLM‑assisted stages: (1) parsing raw human text into a structured intermediate JSON and (2) interpreting that JSON into a strict YAML file matching `templates/econagents_template.yaml.jinja2`.
+Transform natural language economic game descriptions into validated EconAgents YAML configurations in two LLM-assisted stages: (1) parsing raw human text into a structured intermediate JSON and (2) interpreting that JSON into a strict YAML file matching templates/econagents_template.yaml.jinja2.
+
+## Documentation
+
+**New Developers Start Here:**
+- [DEVELOPER_GUIDE.md](documentation/DEVELOPER_GUIDE.md) - Quick start guide and common development tasks
+- [ARCHITECTURE.md](documentation/ARCHITECTURE.md) - System design and component overview
+
+**Reference Documentation:**
+- [STAGE_PIPELINE.md](documentation/STAGE_PIPELINE.md) - Detailed documentation of all 11 stages
+- [DATA_MODELS.md](documentation/DATA_MODELS.md) - Complete data model schemas and field specifications
+- [API_REFERENCE.md](documentation/API_REFERENCE.md) - Public API documentation with examples
+
+**Future Development:**
+- [FUTURE_ROADMAP.md](documentation/FUTURE_ROADMAP.md) - Planned features including Stage 3 (schema-driven prompt generation)
 
 ---
 ## High-Level Architecture
-```
- Raw Game Specification (Markdown / plain text)
-                │
-                V
-      parse_in_stages.py (LLM stages: meta+roles+phases \( \rightarrow \) state \( \rightarrow \)  prompt_partials)
-                │  (Validated, feedback-capable JSON extraction)
-                V
-     Intermediate Structured JSON (output/parse_out/*.json)
-                │
-                V
-  interpret_in_stages.py (LLM stages: meta \( \rightarrow \) roles \( \rightarrow \) state \( \rightarrow \) manager \( \rightarrow \) runner \( \rightarrow \) agents \( \rightarrow \) prompt refinement)
-                │  (Strict schemas, unknown sentinel handling, file generation)
-                V
-      Final YAML file (output/experiment_yaml/*.yaml)
-```
 
-Two separable loops:
-- **Parsing Loop**: Understand the natural language description.
-- **Interpretation Loop**: Convert condensed JSON into the final executable YAML configuration.
+The pipeline consists of two sequential stages:
+
+**Stage 1: Natural Language to JSON** (parse_in_stages.py)
+- Input: Raw game specification files (Markdown/text)
+- 4 LLM-assisted stages: META_ROLES_PHASES, STATE, SETTINGS_UI, PARTIAL_PROMPTS
+- Output: Structured JSON (output/parse_out/)
+
+**Stage 2: JSON to YAML** (interpret_in_stages.py)
+- Input: Structured JSON from Stage 1
+- 7 LLM-assisted stages: META, ROLES, STATE, MANAGER, RUNNER, AGENTS, ROLE_PROMPTS_REFINEMENT
+- Output: YAML configuration (output/experiment_yaml/) + prompt partials (prompts/_partials/)
+
+See [ARCHITECTURE.md](documentation/ARCHITECTURE.md) for detailed system design.
 
 ---
 ## Repository Layout (Key Paths)
@@ -167,4 +176,20 @@ Search for `(UPDATE MANUALLY)` in the YAML and partials to finalize missing piec
 - **Human Feedback**: After an error or accepted result you can inject targeted feedback; the retry prompt includes: previous response, error message, and your notes.
 - **Color Codes**: Blue (stage header), Green (success), Red (error), Yellow (warnings / skip), Gray (prompt preview).
 
-(End of README)
+## Contributing
+
+See [DEVELOPER_GUIDE.md](documentation/DEVELOPER_GUIDE.md) for development setup and contribution guidelines.
+
+Key areas for contribution:
+- Testing infrastructure (unit, integration, end-to-end tests)
+- Documentation improvements
+- Prompt engineering enhancements
+- Stage 3 implementation (schema-driven prompt generation)
+
+## License
+
+See LICENSE file for details.
+
+## Contact
+
+For questions or support, please open a GitHub issue or refer to the documentation in the documentation/ directory.
