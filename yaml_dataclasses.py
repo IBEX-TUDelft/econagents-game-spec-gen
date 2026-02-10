@@ -1,10 +1,58 @@
+"""
+YAML Configuration Data Models
+
+This module defines Python dataclasses that mirror the structure of EconAgents YAML
+configurations. These models are used by the interpretation pipeline (Stage 2) to build
+validated configurations that are then rendered into YAML files.
+
+The data model hierarchy matches the structure defined in templates/econagents_template.yaml.jinja2,
+which is the immutable contract between the pipeline and the EconAgents runtime.
+
+Key Classes:
+    ExperimentConfig: Root configuration object
+    AgentRoleConfig: Role definition with prompts and phases
+    AgentMappingConfig: Maps agent instances to roles
+    StateConfig: State variables (meta/private/public)
+    StateFieldConfig: Individual state variable specification
+    ManagerConfig: Game manager configuration
+    RunnerConfig: Game runner and server configuration
+    PromptPartial: Reusable prompt template snippet
+    RolePromptEntry: Individual prompt for a role
+    EventHandler: Event-driven behavior hook
+
+Design Principles:
+    - All dataclasses use Optional[Type] or defaults for backward compatibility
+    - Mutable defaults use field(default_factory=...)
+    - to_template_context() converts to Jinja2-compatible dictionaries
+    - Explicit field mappings handle template naming conventions
+
+Typical Usage:
+    # Create configuration programmatically
+    config = ExperimentConfig(
+        name="My Experiment",
+        description="A test game",
+        agent_roles=[
+            AgentRoleConfig(
+                role_id=1,
+                name="Player",
+                prompts=[RolePromptEntry(key="system", content="You are a player")]
+            )
+        ]
+    )
+    
+    # Convert to template context and render
+    context = config.to_template_context()
+    yaml_text = template.render(**context)
+
+See Also:
+    interpret_in_stages.py: Uses these models to build configurations
+    templates/econagents_template.yaml.jinja2: Target YAML structure
+    DATA_MODELS.md: Comprehensive field documentation
+    ARCHITECTURE.md: System design overview
+"""
+
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Literal
-
-"""Data model reflecting templates/econagents_template.yaml.jinja2
-All fields marked optional in the template are modelled with Optional[...] or default values.
-The top-level ExperimentConfig can be converted directly into a Jinja2 rendering context.
-"""
 
 # --- Prompt Partials ---
 @dataclass

@@ -1,38 +1,47 @@
 # EconAgents Game Spec Generation Pipeline
 
-Transform natural language economic game descriptions into validated EconAgents YAML configurations in two LLM‑assisted stages: (1) parsing raw human text into a structured intermediate JSON and (2) interpreting that JSON into a strict YAML file matching `templates/econagents_template.yaml.jinja2`.
+Transform natural language economic game descriptions into validated EconAgents YAML configurations in two LLM-assisted stages: (1) parsing raw human text into a structured intermediate JSON and (2) interpreting that JSON into a strict YAML file matching templates/econagents_template.yaml.jinja2.
+
+## Documentation
+
+**New Developers Start Here:**
+- [DEVELOPER_GUIDE.md](documentation/DEVELOPER_GUIDE.md) - Quick start guide and common development tasks
+- [ARCHITECTURE.md](documentation/ARCHITECTURE.md) - System design and component overview
+
+**Reference Documentation:**
+- [STAGE_PIPELINE.md](documentation/STAGE_PIPELINE.md) - Detailed documentation of all 11 stages
+- [DATA_MODELS.md](documentation/DATA_MODELS.md) - Complete data model schemas and field specifications
+- [API_REFERENCE.md](documentation/API_REFERENCE.md) - Public API documentation with examples
+
+**Future Development:**
+- [FUTURE_ROADMAP.md](documentation/FUTURE_ROADMAP.md) - Planned features including Stage 3 (schema-driven prompt generation)
 
 ---
 ## High-Level Architecture
-```
- Raw Game Specification (Markdown / plain text)
-                │
-                V
-      parse_in_stages.py (LLM stages: meta+roles+phases → state →  prompt_partials)
-                │  (Validated, feedback-capable JSON extraction)
-                V
-     Intermediate Structured JSON (output/parse_out/*.json)
-                │
-                V
-  interpret_in_stages.py (LLM stages: meta → roles → state → manager → runner → agents → prompt refinement)
-                │  (Strict schemas, unknown sentinel handling, file generation)
-                V
-      Final YAML file (output/experiment_yaml/*.yaml)
-```
 
-Two separable loops:
-- **Parsing Loop**: Understand the natural language description.
-- **Interpretation Loop**: Convert condensed JSON into the final executable YAML configuration.
+The pipeline consists of two sequential stages:
+
+**Stage 1: Natural Language to JSON** (parse_in_stages.py)
+- Input: Raw game specification files (Markdown/text)
+- 4 LLM-assisted stages: META_ROLES_PHASES, STATE, SETTINGS_UI, PARTIAL_PROMPTS
+- Output: Structured JSON (output/parse_out/)
+
+**Stage 2: JSON to YAML** (interpret_in_stages.py)
+- Input: Structured JSON from Stage 1
+- 7 LLM-assisted stages: META, ROLES, STATE, MANAGER, RUNNER, AGENTS, ROLE_PROMPTS_REFINEMENT
+- Output: YAML configuration (output/experiment_yaml/) + prompt partials (prompts/_partials/)
+
+See [ARCHITECTURE.md](documentation/ARCHITECTURE.md) for detailed system design.
 
 ---
 ## Repository Layout (Key Paths)
 | Path | Purpose |
 |------|---------|
 | `game_spec/` | Source human-readable specs (input to Stage 1). |
-| `parse_in_stages.py` | First pipeline: text → structured JSON. |
+| `parse_in_stages.py` | First pipeline: text \( \rightarrow \) structured JSON. |
 | `prompts/parsing/` | Jinja2 prompt templates for parsing stages. |
 | `output/parse_out/` | Generated intermediate JSON specs. |
-| `interpret_in_stages.py` | Second pipeline: JSON → final YAML. |
+| `interpret_in_stages.py` | Second pipeline: JSON \( \rightarrow \) final YAML. |
 | `prompts/interpret/` | Prompt templates for interpretation stages (strict schemas). |
 | `yaml_dataclasses.py` | Python dataclasses mirroring YAML schema. |
 | `templates/econagents_template.yaml.jinja2` | Immutable final YAML template. |
@@ -46,10 +55,10 @@ Two separable loops:
    - `meta`, `roles`, `phases`, `payoff_consequences`, `state`, `settings`, `prompt_partials`.
 3. **Stage 2 (Interpretation)** ingests that JSON and emits:
    - A strict YAML with: name, description, prompt_partials, agent_roles, agents, state (meta/private/public), manager, runner.
-4. **Unknown information** surfaced as `(UPDATE MANUALLY)` for explicit human completion.
+4. **Unknown information** surfaced as `(UPDATE MANUALLY)` for explicit human completion and empty lists as {}.
 
 ---
-## Stage 1: Text → Structured JSON (`parse_in_stages.py`)
+## Stage 1: Text \( \rightarrow \) Structured JSON (`parse_in_stages.py`)
 Stages (fixed order):
 1. `meta_roles_phases` – Extracts metadata, list of roles (with notes / tasks), phases (actionability & role tasks), payoff consequences.
 2. `state` – Candidate state variables & classifications.
@@ -62,7 +71,7 @@ Features:
 - Writes final JSON snapshot to `output/parse_out/<spec_name>_YYYYmmdd_HHMMSS.json`.
 
 ---
-## 6. Stage 2: JSON → YAML (`interpret_in_stages.py`)
+## 6. Stage 2: JSON \( \rightarrow \) YAML (`interpret_in_stages.py`)
 Stages (default sequence):
 1. `meta`  
 2. `roles`  
@@ -101,7 +110,7 @@ Prompts inside each role are rendered as a list of single‑key mappings; this m
 ## Dataclasses Mapping (`yaml_dataclasses.py`)
 Core classes: `ExperimentConfig`, `PromptPartial`, `AgentRoleConfig`, `RolePromptEntry`, `StateFieldConfig`, `ManagerConfig`, `RunnerConfig`.
 
-`ExperimentConfig.to_template_context()` transforms internal Python objects into the dictionary consumed by the Jinja2 template, also normalizing `RolePromptEntry.content` → `value` for the template’s `prompt.value` access pattern.
+`ExperimentConfig.to_template_context()` transforms internal Python objects into the dictionary consumed by the Jinja2 template, also normalizing `RolePromptEntry.content` \( \rightarrow \) `value` for the template’s `prompt.value` access pattern.
 
 ---
 ## Prompt Templates & Schemas
@@ -118,7 +127,7 @@ You can modify or add interpretation stages by:
 ## Handling Unknown / Missing Fields
 Policy: *Never hallucinate.* Instead:
 - LLM returns `"cannot infer"` (string) or `[]` (empty list) for unknown fields.
-- During interpretation merge, `"cannot infer"` → `None` (Python) for scalars.
+- During interpretation merge, `"cannot infer"` \( \rightarrow \) `None` (Python) for scalars.
 - Prior to YAML render, any `None` scalar is converted to `(UPDATE MANUALLY)` for clarity.
 - Empty lists are sometimes given a placeholder element (in Stage 2 rendering) so the YAML shows an explicit location to edit rather than an invisible omission.
 
@@ -133,7 +142,7 @@ Policy: *Never hallucinate.* Instead:
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-export OPENAI_API_KEY=sk-...   # set your key (fish/zsh adapt accordingly) or create a .env file
+export OPENAI_API_KEY=sk-... # set your key (fish/zsh adapt accordingly) or create a .env file
 ```
 
 ### (A) Parse a Human Spec to JSON
@@ -167,4 +176,20 @@ Search for `(UPDATE MANUALLY)` in the YAML and partials to finalize missing piec
 - **Human Feedback**: After an error or accepted result you can inject targeted feedback; the retry prompt includes: previous response, error message, and your notes.
 - **Color Codes**: Blue (stage header), Green (success), Red (error), Yellow (warnings / skip), Gray (prompt preview).
 
-(End of README)
+## Contributing
+
+See [DEVELOPER_GUIDE.md](documentation/DEVELOPER_GUIDE.md) for development setup and contribution guidelines.
+
+Key areas for contribution:
+- Testing infrastructure (unit, integration, end-to-end tests)
+- Documentation improvements
+- Prompt engineering enhancements
+- Stage 3 implementation (schema-driven prompt generation)
+
+## License
+
+See LICENSE file for details.
+
+## Contact
+
+For questions or support, please open a GitHub issue or refer to the documentation in the documentation/ directory.

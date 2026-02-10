@@ -1,3 +1,49 @@
+"""
+Stage 1: Natural Language to Structured JSON Parser
+
+This module implements the first stage of the EconAgents game specification pipeline.
+It converts natural language game descriptions into structured JSON format suitable for
+interpretation into YAML configurations.
+
+The parser uses a four-stage process:
+1. META_ROLES_PHASES: Extract game metadata, roles, phases, and payoff rules
+2. STATE: Identify state variables (meta, public, private)
+3. SETTINGS_UI: Extract settings and user interface configuration
+4. PARTIAL_PROMPTS: Generate reusable prompt templates
+
+Each stage uses LLM-assisted extraction with strict JSON validation and human feedback loops.
+
+Typical usage:
+    parser = StagedGameSpecParser()
+    parser.select_game_spec("game_spec/prisoner_dilemma.md")
+    
+    # Interactive execution with human feedback
+    for stage in parser.stages:
+        parser.run_stage()
+        parser.wait_for_llm()
+        if parser.get_state() == "SUCCESS":
+            parser.next_stage()
+    
+    # Write final JSON
+    output_path = parser.write_results_to_file()
+
+Classes:
+    Stage: Enum defining parsing stages
+    ParserState: Enum tracking parser execution state
+    Meta: Game metadata container
+    Role: Role definition container
+    Phase: Phase definition container
+    PayoffConsequence: Payoff rule container
+    GameSpec: Complete game specification container
+    StagedGameSpecParser: Main parser orchestrator
+
+See Also:
+    interpret_in_stages.py: Stage 2 pipeline (JSON to YAML)
+    prompts/parsing/: Prompt templates for each stage
+    ARCHITECTURE.md: System architecture documentation
+    STAGE_PIPELINE.md: Detailed stage documentation
+"""
+
 import os
 import json
 import threading
